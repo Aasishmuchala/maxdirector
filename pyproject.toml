@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "maxdirector"
+version = "0.0.1"
+description = "An LLM cinematographer-director inside 3ds Max 2026 + V-Ray 7 (Omega-driven)."
+readme = "README.md"
+requires-python = ">=3.11"
+# Core runtime dep is ONLY requests (Omega gateway + Poly Haven API). numpy<2 + Pillow
+# are added later, and only if preview-frame scoring (a convergence loop) needs them.
+dependencies = ["requests>=2.31"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = [
+    "maxdirector",
+    "maxdirector.core",
+    "maxdirector.core.render",
+    "maxdirector.maxbridge",
+    "maxdirector.ui",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

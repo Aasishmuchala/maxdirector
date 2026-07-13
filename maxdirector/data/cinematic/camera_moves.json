@@ -1,0 +1,16 @@
+{
+  "static": {"best_for": "detail, product, portrait holds", "ease": "linear", "duration_hint_s": [2, 5]},
+  "push_in": {"best_for": "building intimacy, revealing a subject", "film": "Goodfellas", "ease": "in_out", "duration_hint_s": [4, 10]},
+  "pull_out": {"best_for": "context reveal, loneliness, scale", "film": "The Shining", "ease": "out", "duration_hint_s": [4, 10]},
+  "orbit": {"best_for": "hero object, form in the round, product", "film": "The Matrix", "ease": "in_out", "duration_hint_s": [5, 12]},
+  "crane_up": {"best_for": "leaving a space, transcendence, end beat", "film": "many finales", "ease": "out", "duration_hint_s": [5, 10]},
+  "crane_down": {"best_for": "descending into a scene", "film": "Touch of Evil", "ease": "in", "duration_hint_s": [5, 10]},
+  "crane_reveal": {"best_for": "establishing reveal over a foreground element", "film": "Gone with the Wind", "ease": "in_out", "duration_hint_s": [6, 12]},
+  "track": {"best_for": "walking a viewer laterally through a space", "film": "Oldboy", "ease": "linear", "duration_hint_s": [4, 10]},
+  "dolly_zoom": {"best_for": "unease, a realisation beat", "film": "Vertigo", "ease": "in_out", "duration_hint_s": [3, 6]},
+  "establish": {"best_for": "opening a sequence, wide hold then push", "film": "2001", "ease": "in_out", "duration_hint_s": [6, 12]},
+  "product_360": {"best_for": "full turntable of one object", "film": "product film", "ease": "linear", "duration_hint_s": [6, 12]},
+  "tilt": {"best_for": "revealing height, top-to-bottom", "film": "The Shining hallway", "ease": "in_out", "duration_hint_s": [3, 6]},
+  "pan": {"best_for": "connecting two subjects laterally", "film": "Grand Budapest Hotel", "ease": "in_out", "duration_hint_s": [3, 6]},
+  "bezier": {"best_for": "a bespoke architectural fly-through", "film": "arch reel", "ease": "in_out", "duration_hint_s": [8, 20]}
+}

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+build/
+dist/*.zip
+
+# Local secrets / config (the oc_ key lives in %LOCALAPPDATA%, never in the repo)
+*.local.json
+config.json
+
+# 3ds Max / render junk
+*.max.bak
+*.vrscene
+*.vantage
+renders/
+playblasts/

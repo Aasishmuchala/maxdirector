@@ -1,0 +1,13 @@
+{
+  "_note": "Verified V-Ray 7 technical vocabulary the validator enforces. Generate from a single source of truth (LightMatch discipline) so prompt vocab and validator can't drift. Class names are matched by classOf() strings; adjust per hotfix if needed.",
+  "camera_classes": ["VRayPhysicalCamera", "Physical"],
+  "light_classes": ["VRayLight"],
+  "sun_classes": ["VRaySun"],
+  "light_subtypes": ["plane", "sphere", "dome", "disc", "mesh"],
+  "tracks": ["position", "rotation", "scale"],
+  "render_formats": ["exr", "png", "jpg", "tif"],
+  "fov_mm_range": [8.0, 300.0],
+  "distance_m_range": [0.2, 200.0],
+  "intensity_range": [0.0, 1000.0],
+  "temp_k_range": [1000.0, 20000.0]
+}

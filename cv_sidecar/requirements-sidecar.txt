@@ -1,0 +1,14 @@
+# CV sidecar — install in its OWN venv on the GPU box (NOT 3ds Max's Python).
+# Stub mode needs NONE of these (stdlib only). Add them to enable the real models.
+#
+# Commercial-safe stack (outputs feed paid client renders):
+#   torch + torchvision            # match your CUDA (e.g. cu124)
+#   open-clip-torch                # MIT — similarity gate
+#   geocalib                       # Apache code / CC-BY weights — single-image calibration
+#   # Depth Anything V2-Small      # Apache — from the DepthAnything/Depth-Anything-V2 repo
+#   pillow numpy opencv-python cma # imaging + CMA-ES render-and-compare
+#
+# Video trajectory (optional, heavier): mega-sam (Apache; swap its UniDepth prior for
+#   Depth Anything V2-Small to stay commercial-safe) OR a RAFT optical-flow classifier.
+#
+# NON-COMMERCIAL toggle (non-paid experiments only): UniDepthV2, ViPE, Depth Anything V2-Large.
