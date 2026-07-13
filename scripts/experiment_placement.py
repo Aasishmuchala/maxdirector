@@ -25,18 +25,35 @@ from maxdirector.core.models import BBox, Brief, Category, Digest, NodeInfo, UpA
 from maxdirector.core.scout import scout_poses  # noqa: E402
 
 
+def _find_images(image_dir: str):
+    seen, imgs = set(), []
+    for ext in ("png", "jpg", "jpeg", "webp", "PNG", "JPG", "JPEG"):
+        for p in glob.glob(os.path.join(image_dir, f"*.{ext}")):
+            if p.lower() not in seen:
+                seen.add(p.lower())
+                imgs.append(p)
+    return sorted(imgs)
+
+
 def _digest_from_images(image_dir: str) -> Digest:
-    imgs = sorted(glob.glob(os.path.join(image_dir, "*.png")) + glob.glob(os.path.join(image_dir, "*.jpg")))
+    imgs = _find_images(image_dir)
     if not imgs:
-        raise SystemExit(f"no .png/.jpg found in {image_dir}")
+        raise SystemExit(f"no images (png/jpg/jpeg/webp) found in {image_dir}")
     bounds = BBox((-4.0, -3.0, 0.0), (4.0, 3.0, 3.0))          # placeholder room for scout poses
     d = Digest(units="meters", up_axis=UpAxis.Z, scene_bounds=bounds, renderer="V-Ray", is_vray=True,
                nodes=[NodeInfo(handle=1, name="scene", klass="mesh", category=Category.GEOMETRY, bbox=bounds)])
-    scouts = scout_poses(bounds)[: len(imgs)]
-    for sv, path in zip(scouts, imgs):
-        sv.label = os.path.splitext(os.path.basename(path))[0]
-        sv.thumb_path = path
+    # generate exactly as many scout poses as we have images (never truncate / never leave blanks)
+    from maxdirector.core.models import CameraState, ScoutView
+    base = scout_poses(bounds)
+    scouts = []
+    for i, path in enumerate(imgs):
+        pose = base[i].pose if i < len(base) else base[-1].pose
+        sv = ScoutView(id=i, label=os.path.splitext(os.path.basename(path))[0], pose=pose, thumb_path=path)
+        scouts.append(sv)
     d.scouts = scouts
+    print("loaded scout images:")
+    for sv in scouts:
+        print(f"  id={sv.id}  {os.path.basename(sv.thumb_path)}")
     return d
 
 

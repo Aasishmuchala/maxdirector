@@ -79,11 +79,12 @@ def _two_shot_plan():
     return AuthoringPlan(shots=shots, render=RenderSpec(size=(1920, 1080), fps=24, fmt="exr"))
 
 
-def test_plan_jobs_derives_frame_ranges():
+def test_plan_jobs_uses_local_ranges():
     jobs = plan_jobs(_two_shot_plan())
     assert len(jobs) == 2
-    assert jobs[0].frame_start == 0 and jobs[0].frame_end == 95   # 4s*24=96 frames -> 0..95
-    assert jobs[1].frame_start == 96                              # laid out back-to-back
+    # each shot renders over its OWN local range (its camera is keyed 0..dur locally)
+    assert jobs[0].frame_start == 0 and jobs[0].frame_end == 95    # 4s*24 -> 0..95
+    assert jobs[1].frame_start == 0 and jobs[1].frame_end == 143   # 6s*24 -> 0..143 (NOT 96..)
 
 
 def test_vantage_commands_one_per_shot():

@@ -79,25 +79,39 @@ class Controller:
         findings: List[CriticFinding] = []
         by_id = {s.id: s for s in plan.shots}
         for rs in resolved:
-            subj = by_id[rs.id].anchor.relative_to if rs.id in by_id else None
-            subj_node = digest.node_by_name(subj) if subj else None
-            center = subj_node.bbox.center if (subj_node and subj_node.bbox) else None
+            pshot = by_id.get(rs.id)
+            anc = getattr(pshot, "anchor", None)
+            if anc is not None:
+                subj_node = digest.node_by_name(anc.relative_to)
+                center = subj_node.bbox.center if (subj_node and subj_node.bbox) else None
+            else:
+                # scout-anchored (the primary path): the resolved look-at IS the framing target
+                center = rs.states[0][1].look_at if rs.states else None
             findings += critique_shot(rs, digest, subject_center=center)
         return plan, resolved, findings, errors
 
     def blocked(self, findings: List[CriticFinding]) -> bool:
         return has_blockers(findings)
 
-    # ⑥ preview (playblast + optional best-of-N via sidecar)
+    # ⑥ preview (playblast) — temp cameras are ALWAYS deleted so preview never leaves
+    # MD_*_preview nodes behind in a real client scene (it runs before Apply, outside backup).
     def preview(self, resolved: List[ResolvedShot]) -> dict:
         from .framing import capture
         from .authoring import create_camera, apply_camera_states
         shots = {}
         for rs in resolved:
             cam, ok = create_camera(rs.camera_name + "_preview", rs.states[0][1].fov_mm if rs.states else 35.0)
-            if ok:
+            if not ok:
+                continue
+            try:
                 apply_camera_states(cam, rs.states, 24)
                 shots[rs.id] = capture(cam, tag=rs.id)
+            finally:
+                try:
+                    import pymxs
+                    pymxs.runtime.delete(cam)
+                except Exception:
+                    pass
         return shots
 
     # ⑥ APPLY

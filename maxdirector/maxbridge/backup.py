@@ -33,8 +33,10 @@ def backup() -> str:
     rt = _rt()
     scene = str(rt.maxFilePath) + str(rt.maxFileName)
     dest = backup_path_for(scene)
-    ok = rt.saveMaxFile(dest, rt.Name("useNewFile"), False, rt.Name("quiet"), True,
-                        rt.Name("clearNeedSaveFlag"), False)
+    # pymxs maps Python kwargs to MAXScript keyword args — the interleaved rt.Name(...) /
+    # value positional trick is a MAXScript-source idiom that pymxs would treat as extra
+    # positionals and reject, aborting every apply. Use real kwargs.
+    ok = rt.saveMaxFile(dest, useNewFile=False, quiet=True, clearNeedSaveFlag=False)
     if not ok or not os.path.exists(dest):
         raise RuntimeError(f"MaxDirector: backup failed to {dest} — apply aborted for safety.")
     return dest

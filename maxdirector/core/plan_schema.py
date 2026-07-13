@@ -137,7 +137,7 @@ def parse_plan(
             plan.shots.append(PlanShot(
                 id=str(s.get("id", f"s{i+1}")),
                 camera=CameraSpec(
-                    name=str(cam.get("name", f"MD_Cam_{i+1:02d}")),
+                    name=_md_name(cam.get("name"), i),   # MD_ prefix here so node lookups match
                     klass=klass,
                     create=bool(cam.get("create", True)),
                     fov_mm=pack.clamp_fov(_num(cam.get("fov_mm"), fov_default)),
@@ -245,6 +245,16 @@ def _clampf(v, rng):
         return None
     n = _num(v, None)
     return None if n is None else max(rng[0], min(rng[1], n))
+
+
+def _md_name(name, i: int) -> str:
+    """Every created node is MD_-namespaced. Apply it in the pure layer so the name the plan
+    carries already matches the node the bridge creates — otherwise render/export look up an
+    un-prefixed name, find nothing, and silently render the active camera (the wrong view)."""
+    n = str(name).strip() if name else ""
+    if not n:
+        return f"MD_Cam_{i+1:02d}"
+    return n if n.startswith("MD_") else f"MD_{n}"
 
 
 def _num(v, default):

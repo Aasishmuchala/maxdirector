@@ -80,6 +80,36 @@ def _up_vec(up_axis: UpAxis) -> Vec3:
     return (0.0, 0.0, 1.0) if up_axis == UpAxis.Z else (0.0, 1.0, 0.0)
 
 
+SENSOR_W_MM = 36.0
+SENSOR_H_MM = 24.0
+
+
+def reaim(pos: Vec3, look: Vec3, up: Vec3, fov_mm: float, screen: Vec3) -> Vec3:
+    """Re-aim so the current look target lands at screen position (u,v) in 0..1 (0.5,0.5 =
+    centre). This is the compositional lever the model controls via look_shift /
+    subject_screen_pos — without it every shot stares dead-centre. To put the subject on the
+    right/up, we rotate the camera left/up by the corresponding fraction of the FOV, which
+    shifts the target the opposite way in frame. Returns the new look point."""
+    u, v = screen[0], screen[1]
+    if abs(u - 0.5) < 1e-6 and abs(v - 0.5) < 1e-6:
+        return look
+    view = sub(look, pos)
+    dist = length(view)
+    if dist < 1e-9:
+        return look
+    vdir = normalize(view)
+    right = normalize(cross(vdir, up))
+    hfov = 2.0 * math.atan(SENSOR_W_MM / (2.0 * max(fov_mm, 1.0)))
+    vfov = 2.0 * math.atan(SENSOR_H_MM / (2.0 * max(fov_mm, 1.0)))
+    # subject-right (u>0.5) → aim target left of the subject so it falls on the right; likewise
+    # subject-low (v>0.5) → aim up. (Verified via Rodrigues about the up / right axes.)
+    yaw = (u - 0.5) * hfov
+    pitch = (v - 0.5) * vfov
+    vdir = rotate_about_axis(vdir, up, yaw)
+    vdir = rotate_about_axis(vdir, right, pitch)
+    return add(pos, scale(normalize(vdir), dist))
+
+
 # Horizontal standpoint directions in a Z-up world (unit, pointing FROM subject TO camera).
 _ZUP_DIR = {
     Standpoint.FRONT: (0.0, -1.0, 0.0),

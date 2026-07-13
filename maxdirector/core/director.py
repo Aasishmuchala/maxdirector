@@ -72,10 +72,32 @@ STORYBOARD:
 """
 
 
+def _media_type(data: bytes) -> str:
+    """Sniff from magic bytes — the experiment invites JPEGs, and tagging a JPEG image/png
+    makes the gateway 400 / mis-decode, which would fail the whole GO/NO-GO for a one-liner."""
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/png"
+
+
+def _scout_intrinsics(sv) -> str:
+    """A coarse pose description so the model's dolly/truck/pedestal metres + fov are calibrated
+    to the vantage it's reasoning from, not guessed from a thumbnail alone."""
+    import math
+    p, l = sv.pose.pos, sv.pose.look_at
+    d = (l[0] - p[0], l[1] - p[1], l[2] - p[2])
+    az = math.degrees(math.atan2(d[1], d[0]))       # look azimuth in the ground plane
+    return f"{sv.pose.fov_mm:.0f}mm, eye {p[2]:.1f}m, looking ~{az:.0f}°az"
+
+
 def _scout_legend(digest: Digest) -> str:
     if not digest.scouts:
         return "(no scout thumbnails available — reason from the object list, less reliable)"
-    return "\n".join(f"  id={sv.id}: {sv.label}" for sv in digest.scouts)
+    return "\n".join(f"  id={sv.id}: {sv.label} [{_scout_intrinsics(sv)}]" for sv in digest.scouts)
 
 
 def _scout_blocks(digest: Digest) -> list:
@@ -86,9 +108,9 @@ def _scout_blocks(digest: Digest) -> list:
         if sv.thumb_path and os.path.exists(sv.thumb_path):
             try:
                 with open(sv.thumb_path, "rb") as f:
-                    b64 = base64.b64encode(f.read()).decode("ascii")
+                    data = f.read()
                 blocks.append(text_block(f"scout id={sv.id} ({sv.label}):"))
-                blocks.append(image_block(b64, "image/png"))
+                blocks.append(image_block(base64.b64encode(data).decode("ascii"), _media_type(data)))
             except OSError:
                 pass
     return blocks

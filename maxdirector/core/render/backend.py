@@ -27,23 +27,21 @@ class RenderJob:
 
 
 def plan_jobs(plan: AuthoringPlan, out_dir: str = "renders") -> List[RenderJob]:
-    """One job per shot. If the render spec listed explicit frame ranges, use them; else
-    derive from each shot's duration x fps, laid out back-to-back on a single timeline."""
+    """One job per shot, each rendered over its own LOCAL range [0 .. duration*fps-1].
+
+    Each shot has its own camera and its own output file, and ``apply_camera_states`` keys
+    every camera on a LOCAL timeline (t_s*fps, starting at 0). So jobs MUST use local ranges
+    too — a global back-to-back cursor would render shots 2..N over frames where their camera
+    has no keys, freezing every shot after the first. (Fix from the review.)"""
     rs: RenderSpec = plan.render
     w, h = rs.size
     explicit = {s.id: s for s in rs.shots}
     jobs: List[RenderJob] = []
-    cursor = 0
     for shot in plan.shots:
-        cam = shot.camera.name
-        if shot.id in explicit and explicit[shot.id].frames:
-            a, b = explicit[shot.id].frames
-            out = explicit[shot.id].output or f"{out_dir}/{shot.id}.####.{rs.fmt}"
-        else:
-            a = cursor
-            b = cursor + max(1, round(shot.duration_s * rs.fps)) - 1
-            out = f"{out_dir}/{shot.id}.####.{rs.fmt}"
-        cursor = b + 1
-        jobs.append(RenderJob(shot_id=shot.id, camera_name=cam, frame_start=a, frame_end=b,
+        count = max(1, round(shot.duration_s * rs.fps))
+        out = (explicit[shot.id].output if shot.id in explicit and explicit[shot.id].output
+               else f"{out_dir}/{shot.id}.####.{rs.fmt}")
+        jobs.append(RenderJob(shot_id=shot.id, camera_name=shot.camera.name,
+                              frame_start=0, frame_end=count - 1,
                               width=w, height=h, fmt=rs.fmt, output=out))
     return jobs

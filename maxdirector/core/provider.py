@@ -89,9 +89,23 @@ def _openai_call(key, system, messages, model, max_tokens, post) -> str:
     raise OmegaError(last, "network")
 
 
+def _has_images(messages) -> bool:
+    for m in messages:
+        c = m.get("content")
+        if isinstance(c, list) and any(isinstance(b, dict) and b.get("type") == "image" for b in c):
+            return True
+    return False
+
+
 def complete(key, system, messages, model=DEFAULT_MODEL, max_tokens=8192, post=omega._default_post) -> str:
     """Route to the correct wire format for ``model`` and return the reply TEXT."""
     if wire_for(model) == "openai":
+        # The OpenAI chat path flattens content to text — it would SILENTLY drop scout images
+        # and gut the vision-first bet. Fail loud instead until image_url translation is wired.
+        if _has_images(messages):
+            raise OmegaError(
+                f"{model} uses the OpenAI wire path, which can't carry scout images yet — "
+                "use claude-opus-4-8 for the vision-first stages (DIRECT/COMPILE).", "other")
         return _openai_call(key, system, messages, model, max_tokens, post)
     return omega.call(key, system, messages, model=model, max_tokens=max_tokens, post=post)
 

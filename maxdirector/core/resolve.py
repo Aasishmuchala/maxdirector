@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import List, Optional
 
-from .anchors import resolve_camera, sample_path
+from .anchors import reaim, resolve_camera, sample_path
 from .models import (
     Anchor,
     AuthoringPlan,
@@ -78,6 +78,10 @@ def resolve_plan(plan: AuthoringPlan, digest: Digest, scale: Optional[float] = N
             target = digest.node_by_name(anchor.relative_to) or _fallback_target(digest)
             start = resolve_camera(anchor, target, digest.up_axis, s)
         start = replace(start, fov_mm=shot.camera.fov_mm)  # the camera spec is the lens of record
+        # apply the shot's compositional intent (where the subject sits in frame)
+        screen = (shot.scout_anchor.look_shift if shot.scout_anchor
+                  else (shot.anchor.subject_screen_pos if shot.anchor else (0.5, 0.5, 0.0)))
+        start = replace(start, look_at=reaim(start.pos, start.look_at, start.up, start.fov_mm, screen))
         move = _move_from_kind(shot.path.kind)
         around = (digest.node_by_name(shot.path.around) if shot.path.around else None) or target
         states = sample_path(start, shot.path, move, around, shot.duration_s, digest.up_axis, s)

@@ -139,7 +139,7 @@ def collect_digest() -> Digest:
         )
         d.nodes.append(node)
 
-    if hi[0] > lo[0]:
+    if any(hi[i] > lo[i] for i in range(3)):   # any real extent — a flat facade counts too
         d.scene_bounds = BBox(lo=tuple(lo), hi=tuple(hi))  # type: ignore[arg-type]
 
     # environment / exposure / gamma (LightMatch census)
