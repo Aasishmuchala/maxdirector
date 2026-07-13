@@ -8,14 +8,16 @@ balanced-brace extractor, and validates into the pure dataclasses. The LLM call 
 
 from __future__ import annotations
 
+import base64
 import json
+import os
 from typing import Callable, List, Optional, Tuple
 
 from . import provider as _provider
 from .cinematic import CinematicPack, load as load_cinematic
 from .digest_format import digest_block
 from .models import AuthoringPlan, Brief, Digest, Storyboard
-from .omega import parse_json_from_text
+from .omega import image_block, parse_json_from_text, text_block
 from .packs import VerifiedPack, default_vray_pack
 from .plan_schema import PLAN_SCHEMA_HINT, parse_plan
 from .storyboard import STORYBOARD_SCHEMA, parse_storyboard
@@ -23,19 +25,24 @@ from .storyboard import STORYBOARD_SCHEMA, parse_storyboard
 Complete = Callable[..., str]
 
 _DIRECT_SYS = """You are the DIRECTOR inside MaxDirector, planning a cinematic multi-shot \
-sequence for a real 3ds Max archviz scene. You are given the SCENE (real named objects with \
-sizes and positions), the BRIEF, and the CINEMATIC vocabulary. Design an ordered SHOT LIST \
-that tells a story with real camera moves, choosing a subject object BY NAME for each shot \
-from the scene. Foresee ASSET GAPS (a shot that needs a sky, foreground, prop, or entourage \
-the scene lacks). Do NOT invent objects that aren't in the scene.
+sequence for a real 3ds Max archviz scene. You are shown SCOUT VIEWS — thumbnail renders of the \
+scene from known camera positions, each with an id. LOOK at them: they show you the real space, \
+where the light and windows are, what is worth framing. Design an ordered SHOT LIST that tells a \
+story with real camera moves. For each shot pick the scout view whose vantage is closest to what \
+you want (set from_scout to its id) and describe the move and framing you'd make from there. Node \
+names in archviz scenes are often meaningless (Box001, Editable_Poly_47) — TRUST THE IMAGES, not \
+the names. Foresee ASSET GAPS (a shot that needs a sky, foreground, prop the scene lacks).
 
 Return ONLY a JSON object (no markdown fences, no prose) matching this schema:
+%s
+
+SCOUT VIEWS (ids you may reference as from_scout):
 %s
 
 CINEMATIC VOCABULARY:
 %s
 
-SCENE:
+SCENE (object list — names may be unreliable; the images are ground truth):
 %s
 
 BRIEF:
@@ -43,13 +50,18 @@ BRIEF:
 """
 
 _COMPILE_SYS = """You are the COMPILER inside MaxDirector. Turn the approved STORYBOARD into a \
-technical AUTHORING PLAN for 3ds Max + V-Ray 7. CRITICAL: express camera placement as SEMANTIC \
-ANCHORS relative to real named objects (relative_to, standpoint, distance_m in METRES, height_m, \
-subject_screen_pos) — NEVER world coordinates; the plugin computes transforms from real geometry. \
-Use only VRayPhysicalCamera / VRaySun / VRayLight. Keep params within sane ranges. For any object \
-animation, only reference nodes marked anim_safe in the scene.
+technical AUTHORING PLAN for 3ds Max + V-Ray 7, using the SCOUT VIEWS you are shown. CRITICAL: \
+place each camera VISION-FIRST with a scout_anchor — pick the from_scout id whose thumbnail is \
+closest to the shot, then nudge in camera-local METRES: dolly_m (positive = push IN toward what you see, \
+negative = pull back), truck_m (+ right), pedestal_m (+ up), and set fov_mm. The plugin resolves this from the scout's \
+KNOWN pose, so it lands in real geometry — never emit world coordinates. Use an object anchor only \
+if a named object is unmistakably the subject. Use only VRayPhysicalCamera / VRaySun / VRayLight; \
+keep params sane; animate only anim_safe nodes.
 
 Return ONLY a JSON object (no fences, no prose) shaped like this example:
+%s
+
+SCOUT VIEWS:
 %s
 
 SCENE:
@@ -58,6 +70,32 @@ SCENE:
 STORYBOARD:
 %s
 """
+
+
+def _scout_legend(digest: Digest) -> str:
+    if not digest.scouts:
+        return "(no scout thumbnails available — reason from the object list, less reliable)"
+    return "\n".join(f"  id={sv.id}: {sv.label}" for sv in digest.scouts)
+
+
+def _scout_blocks(digest: Digest) -> list:
+    """Image content blocks for the multimodal call — the scout thumbnails the model reasons
+    over. Skips any scout whose thumbnail wasn't rendered (degrades to text-only)."""
+    blocks = []
+    for sv in digest.scouts:
+        if sv.thumb_path and os.path.exists(sv.thumb_path):
+            try:
+                with open(sv.thumb_path, "rb") as f:
+                    b64 = base64.b64encode(f.read()).decode("ascii")
+                blocks.append(text_block(f"scout id={sv.id} ({sv.label}):"))
+                blocks.append(image_block(b64, "image/png"))
+            except OSError:
+                pass
+    return blocks
+
+
+def _user_content(instruction: str, digest: Digest) -> list:
+    return [text_block(instruction)] + _scout_blocks(digest)
 
 
 def _shots_json(sb: Storyboard) -> str:
@@ -86,11 +124,13 @@ def direct(
     cine = cinematic or load_cinematic()
     system = _DIRECT_SYS % (
         json.dumps(STORYBOARD_SCHEMA, indent=1),
+        _scout_legend(digest),
         cine.prompt_block(brief.director_style),
         digest_block(digest),
         json.dumps(brief.to_prompt_dict(), indent=1),
     )
-    raw = complete(key, system, [{"role": "user", "content": "Design the shot list."}], model=model)
+    content = _user_content("Study the scout views and design the shot list.", digest)
+    raw = complete(key, system, [{"role": "user", "content": content}], model=model)
     obj = parse_json_from_text(raw)
     if obj is None:
         return None, ["model did not return valid JSON"], raw
@@ -111,10 +151,12 @@ def compile_plan(
     pack = pack or default_vray_pack()
     system = _COMPILE_SYS % (
         json.dumps(PLAN_SCHEMA_HINT, indent=1),
+        _scout_legend(digest),
         digest_block(digest),
         _shots_json(storyboard),
     )
-    raw = complete(key, system, [{"role": "user", "content": "Compile the authoring plan."}], model=model)
+    content = _user_content("Compile the authoring plan using scout_anchors.", digest)
+    raw = complete(key, system, [{"role": "user", "content": content}], model=model)
     obj = parse_json_from_text(raw)
     if obj is None:
         return None, ["model did not return valid JSON"], raw

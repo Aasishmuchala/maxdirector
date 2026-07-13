@@ -33,6 +33,7 @@ STORYBOARD_SCHEMA = {
                     "beat": {"type": "string"},
                     "intent": {"type": "string"},
                     "camera_move": {"enum": [m.value for m in CameraMove]},
+                    "from_scout": {"type": ["integer", "null"], "description": "id of the scout view this shot is based on (preferred)"},
                     "subject_node": {"type": ["string", "null"]},
                     "framing": {"type": "string"},
                     "mood": {"type": "string"},
@@ -88,12 +89,18 @@ def parse_storyboard(obj: dict, digest: Digest) -> Tuple[Storyboard, List[str]]:
         if subj is not None and subj not in targets:
             notes.append(f"shot {s.get('id', i)}: subject {subj!r} not in scene")
             subj = None
+        fs = s.get("from_scout")
+        try:
+            fs = int(fs) if fs is not None else None
+        except (TypeError, ValueError):
+            fs = None
         sb.shots.append(StoryboardShot(
             id=str(s.get("id", f"s{i+1}")),
             beat=str(s.get("beat", "")),
             intent=str(s.get("intent", "")),
             camera_move=move,
             subject_node=subj,
+            from_scout=fs,
             framing=str(s.get("framing", "")),
             mood=str(s.get("mood", "")),
             duration_s=float(s.get("duration_s", 4.0) or 4.0),

@@ -185,8 +185,15 @@ class Digest:
     exposure_control_active: Optional[bool] = None
     frame_rate: float = 30.0
     warnings: List[str] = field(default_factory=list)
+    scouts: List["ScoutView"] = field(default_factory=list)   # visual digest (thumbnails)
 
     # -- convenience lookups (used by anchor resolver + validator) --
+
+    def scout_by_id(self, sid: int) -> Optional["ScoutView"]:
+        for s in self.scouts:
+            if s.id == sid:
+                return s
+        return None
 
     def node_by_name(self, name: str) -> Optional[NodeInfo]:
         for n in self.nodes:
@@ -271,6 +278,7 @@ class StoryboardShot:
     intent: str
     camera_move: CameraMove
     subject_node: Optional[str] = None
+    from_scout: Optional[int] = None       # which scout view inspired this shot (vision-first)
     framing: str = ""
     mood: str = ""
     duration_s: float = 4.0
@@ -290,10 +298,33 @@ class Storyboard:
 # -------------------------------------------------------------- authoring plan (⑤)
 
 @dataclass
+class ScoutView:
+    """An auto-placed scout camera whose thumbnail is shown to the (multimodal) model. Its
+    world pose is KNOWN ground truth, so the model can place a real camera by nudging from a
+    view it can actually SEE — instead of guessing 3D from bounding boxes and (often garbage)
+    node names. This is the vision-first fix for placement quality."""
+    id: int
+    label: str
+    pose: "CameraState"
+    thumb_path: str = ""
+
+
+@dataclass
+class ScoutAnchor:
+    """Vision-first placement: 'start from scout view N, then nudge.' The model reasons over
+    the scout's IMAGE; the bridge resolves from the scout's known pose. Camera-local metres."""
+    from_scout: int
+    dolly_m: float = 0.0                    # + toward the look target (push in), - away
+    truck_m: float = 0.0                    # + right, - left
+    pedestal_m: float = 0.0                 # + up, - down
+    look_shift: Vec3 = (0.5, 0.5, 0.0)      # compositional nudge of the look target (screen 0..1)
+    fov_mm: Optional[float] = None
+
+
+@dataclass
 class Anchor:
-    """Semantic camera placement — resolved to a world transform by the BRIDGE, never by
-    the LLM. This is the fix for 'camera in the void': the model plans relative to real
-    geometry; ``maxbridge.anchors_resolve`` does the metric math from actual bbox/pivots."""
+    """Object-relative placement (secondary path — used when the model can clearly identify a
+    named subject). Resolved to a world transform by the BRIDGE, never by the LLM."""
     relative_to: str                       # a node name from the digest
     standpoint: Standpoint = Standpoint.THREE_QUARTER
     distance_m: float = 3.0                # metres; scaled to scene units at resolve time
@@ -332,7 +363,8 @@ class CameraSpec:
 class PlanShot:
     id: str
     camera: CameraSpec
-    anchor: Anchor
+    anchor: Optional[Anchor] = None            # object-relative placement (secondary)
+    scout_anchor: Optional[ScoutAnchor] = None  # vision-first placement (primary)
     path: PathSpec = field(default_factory=PathSpec)
     keyframes: List[Keyframe] = field(default_factory=list)
     duration_s: float = 4.0

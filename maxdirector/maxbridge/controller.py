@@ -36,10 +36,17 @@ class Controller:
         if self.cfg.use_cv_sidecar:
             self.cv = CVClient(self.cfg.sidecar_url)
 
-    # ① UNDERSTAND
-    def understand(self) -> Digest:
+    # ① UNDERSTAND  (+ capture scout thumbnails so DIRECT/COMPILE can SEE the scene)
+    def understand(self, with_scouts: bool = True) -> Digest:
         from .digest import collect_digest
-        return collect_digest()
+        digest = collect_digest()
+        if with_scouts:
+            try:
+                from .scout import capture_scouts
+                digest = capture_scouts(digest)
+            except Exception as e:  # scouts are an enhancement; never block the pipeline
+                digest.warnings.append(f"scout capture skipped: {e}")
+        return digest
 
     # ③ DIRECT
     def direct(self, digest: Digest, brief: Brief) -> Tuple[Optional[Storyboard], List[str]]:

@@ -12,18 +12,26 @@ Target: **~95% reliability on real scenes**, always human-approved.
 ## How the Director works (LLM plans · CV grounds · plugin executes · you approve)
 
 ```
-① UNDERSTAND  scene → digest (named objects, bounds, cams/lights, guards, warnings)
+① UNDERSTAND  scene → digest + SCOUT VIEWS (auto-placed cameras rendered to thumbnails)
 ② BRIEF       intent + director/mood/duration/aspect/backend; optional reference image/video
-③ DIRECT ►LLM digest+brief+cinematic pack → STORYBOARD (shot list + asset gaps)   [approve]
-④ GAPS        sky → Poly Haven (auto) · furniture → Cosmos (guided) · bespoke → GLB [approve]
-⑤ COMPILE►LLM storyboard → AUTHORING PLAN in SEMANTIC ANCHORS (never world coords)
-⑤·5 GROUND    bridge resolves anchors → transforms from REAL geometry; geometric CRITIC;
+③ DIRECT ►LLM digest + SCOUT IMAGES + cinematic pack → STORYBOARD (each shot picks a scout) [approve]
+④ GAPS        sky → Poly Haven (auto) · furniture → Cosmos (guided) · bespoke → GLB  [approve]
+⑤ COMPILE►LLM storyboard + scout images → PLAN via SCOUT ANCHORS ("from scout N, nudge") 
+⑤·5 GROUND    bridge resolves anchors → transforms from KNOWN scout poses; geometric CRITIC;
               best-of-N scoring (composition + CV aesthetic/reference)
 ⑥ BUILD       preview → [approve] → apply (backup + one undo + read-back verify) → render
 ```
 
-The LLM never emits world coordinates (that's the "camera in the void" fix) and never
+**Vision-first placement** is the load-bearing design choice: the model reasons over rendered
+scout images (with known camera poses) and places a camera by nudging from a view it can *see*
+— not by guessing 3D from bounding boxes and often-meaningless node names (`Box001`,
+`Editable_Poly_47`). It never emits world coordinates ("camera in the void" fix) and never
 browses — the plugin does all scene I/O, web fetches, and rendering.
+
+**Validate the core bet first** (off-Max, no GPU): `python scripts/experiment_placement.py
+--images ./views --key oc_… --prompt "…"` feeds a few rendered scene views to the real gateway
+and prints the shots the model chose — so you can judge whether placement is actually good
+before building anything further.
 
 ## Architecture (hexagon)
 

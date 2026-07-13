@@ -12,13 +12,16 @@ from typing import List, Optional
 
 from .anchors import resolve_camera, sample_path
 from .models import (
+    Anchor,
     AuthoringPlan,
     CameraMove,
     CameraState,
     Digest,
     NodeInfo,
     ResolvedShot,
+    Vec3,
 )
+from .scout import resolve_scout_camera
 
 # Approximate metre→scene-unit factors by unit name. The AUTHORITATIVE factor comes from
 # Max's system unit (bridge passes it in); this is the off-Max fallback for tests/preview.
@@ -51,17 +54,33 @@ def _fallback_target(digest: Digest) -> NodeInfo:
     return NodeInfo(handle=-1, name="__scene__", klass="__scene__", bbox=b)
 
 
+def _target_from_point(p: Vec3) -> NodeInfo:
+    """A synthetic node at a point, so path moves (orbit/dolly) have a look target."""
+    return NodeInfo(handle=-2, name="__look__", klass="__look__", pivot=p)
+
+
 def resolve_plan(plan: AuthoringPlan, digest: Digest, scale: Optional[float] = None) -> List[ResolvedShot]:
     s = scale if scale is not None else meters_to_units(digest.units)
     out: List[ResolvedShot] = []
     for shot in plan.shots:
-        target = digest.node_by_name(shot.anchor.relative_to) or _fallback_target(digest)
-        start = resolve_camera(shot.anchor, target, digest.up_axis, s)
-        start = replace(start, fov_mm=shot.camera.fov_mm)  # anchor doesn't set lens; the camera does
+        if shot.scout_anchor is not None:
+            # VISION-FIRST path: nudge from a known scout pose the model actually saw
+            scout = digest.scout_by_id(shot.scout_anchor.from_scout) or (digest.scouts[0] if digest.scouts else None)
+            if scout is not None:
+                start = resolve_scout_camera(shot.scout_anchor, scout, digest.up_axis, s)
+                target = _target_from_point(start.look_at)
+            else:
+                target = _fallback_target(digest)
+                start = resolve_camera(Anchor(relative_to=""), target, digest.up_axis, s)
+        else:
+            # OBJECT-RELATIVE path (secondary)
+            anchor = shot.anchor or Anchor(relative_to="")
+            target = digest.node_by_name(anchor.relative_to) or _fallback_target(digest)
+            start = resolve_camera(anchor, target, digest.up_axis, s)
+        start = replace(start, fov_mm=shot.camera.fov_mm)  # the camera spec is the lens of record
         move = _move_from_kind(shot.path.kind)
         around = (digest.node_by_name(shot.path.around) if shot.path.around else None) or target
         states = sample_path(start, shot.path, move, around, shot.duration_s, digest.up_axis, s)
-        # apply any explicit keyframe FOV overrides onto the matching endpoints
         states = _apply_fov_overrides(states, shot)
         out.append(ResolvedShot(id=shot.id, camera_name=shot.camera.name, states=states))
     return out

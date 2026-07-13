@@ -26,12 +26,23 @@ Legend: [x] done & tested · [~] source complete, needs on-box verification · [
 - [~] PySide6 dock (brief, storyboard/plan tree, gaps, critic, apply, render queue; worker thread)
 - [~] bootstrap (deps check) + startup macro · data packs (cinematic + vray7)
 
+## ⭐ Validate the core bet FIRST (off-Max, no GPU — settles whether this is worth it)
+- [ ] `python scripts/experiment_placement.py --images ./views --key oc_… --prompt "…"`
+      Render 4–6 views of a REAL Sthyra scene, feed them + your key to the real gateway, and
+      judge: did the model pick sensible vantages + moves for those images? GO/NO-GO on the
+      whole approach. (Vision-first scout placement — this is the load-bearing bet.)
+
 ## Spikes to run on your box → Checkpoint 0
 - [ ] T2 `python scripts/spike_provider_ping.py <oc_key>`  (opus-4.8 + gpt-5.5)
 - [ ] T3 `3dsmaxbatch ... run_spike_create.ms`             (VRay camera+sun read-back → SMOKE_OK)
 - [ ] T4 `python scripts/spike_vantage_cli.py <scene.vantage>`  (5-frame Vantage batch)
 - [x] T5 `python scripts/spike_sidecar.py`                 (sidecar roundtrip — GO)
 
+## Vision-first redesign (done, pure-tested)
+- [x] scout view poses + scout-anchor resolution (pure, tested)
+- [x] multimodal DIRECT/COMPILE (scout thumbnails as image blocks) + scout_anchor schema
+- [~] `maxbridge/scout.py` capture (render thumbnails in Max) + controller wiring — source complete
+
 ## Then
-- [ ] Checkpoint 1: live MVP smoke in Max on a real Sthyra scene (direct→apply→V-Ray render)
+- [ ] Checkpoint 1: live MVP smoke in Max on a real Sthyra scene (understand+scouts → direct → apply → V-Ray)
 - [ ] P2–P5 live verification per phase
