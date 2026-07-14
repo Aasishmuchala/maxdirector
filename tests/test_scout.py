@@ -23,6 +23,23 @@ def test_scout_poses_cover_scene(living_room):
     assert plan.pose.pos[2] > living_room.scene_bounds.hi[2]
 
 
+def test_feature_directed_scouts_added_with_nodes(living_room):
+    # the north wall (8m wide, 3m tall) is the dominant vertical feature
+    views = scout_poses(living_room.scene_bounds, nodes=living_room.nodes)
+    labels = [v.label for v in views]
+    assert "feature_low" in labels and "feature_high" in labels
+    # feature scouts are deliverable-like ~35mm, not 18mm ultra-wide
+    feat = next(v for v in views if v.label == "feature_low")
+    assert feat.pose.fov_mm == 35.0
+    # and they aim at a real feature's centre, not the room centre
+    assert feat.pose.look_at != living_room.scene_bounds.center
+
+
+def test_no_feature_scouts_without_nodes(living_room):
+    views = scout_poses(living_room.scene_bounds)   # no nodes → just the coverage set
+    assert not any(v.label.startswith("feature") for v in views)
+
+
 def test_resolve_scout_dolly_moves_toward_look(living_room):
     scout = scout_poses(living_room.scene_bounds)[0]
     c = scout.pose.look_at

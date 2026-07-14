@@ -31,7 +31,8 @@ def capture_scouts(digest: Digest, width: int = 512, height: int = 320) -> Diges
     rt = _rt()
     if digest.scene_bounds is None:
         return digest
-    views = scout_poses(digest.scene_bounds, digest.up_axis, meters_to_units(digest.units))
+    views = scout_poses(digest.scene_bounds, digest.up_axis, meters_to_units(digest.units),
+                        nodes=digest.nodes)  # feature-directed scouts need the geometry list
     out_dir = _scout_dir()
     for sv in views:
         cam = None
