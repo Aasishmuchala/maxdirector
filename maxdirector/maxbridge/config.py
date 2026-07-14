@@ -30,6 +30,7 @@ class Config:
     commercial_safe_cv: bool = True         # default: outputs feed paid work
     vantage_console: str = r"C:\Program Files\Chaos\Vantage\vantage_console.exe"
     best_of_n: int = 3
+    repo_path: str = ""                     # clone folder, written at install (startup reads it)
 
     def save(self) -> None:
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:

@@ -18,25 +18,19 @@ Before installing anything, confirm the LLM actually places good cameras when it
 
 ---
 
-## 1 · Install into 3ds Max 2026 (15 min)
+## 1 · Install into 3ds Max 2026 (5 min)
 
 ```powershell
-# a) get the code
 git clone https://github.com/Aasishmuchala/maxdirector C:\Users\you\maxdirector
-setx MAXDIRECTOR C:\Users\you\maxdirector
-
-# b) the one runtime dep, into Max's Python user-site
-"C:\Program Files\Autodesk\3ds Max 2026\Python\python.exe" -m pip install ^
-  --target "%APPDATA%\Python\Python311\site-packages" requests
-
-# c) register the toolbar action
-copy C:\Users\you\maxdirector\maxdirector\startup\maxdirector_startup.py ^
-  "%LOCALAPPDATA%\Autodesk\3dsMax\2026 - 64bit\ENU\scripts\startup\"
 ```
 
+**Double-click `scripts\install.bat`.** It finds Max's Python, installs the one dep
+(`requests`), registers the toolbar macro, and records the clone path — the whole install in
+one step. (Manual steps are in the README if you'd rather.)
+
 Restart Max → Customize → Customize User Interface → category **MaxDirector** → drag the action
-onto a toolbar. Click it, paste your `oc_` key in the dock (stored at
-`%LOCALAPPDATA%/MaxDirector/config.json`, never committed).
+onto a toolbar. Click it, paste your `oc_` key, press **Test & Save** (it pings the gateway so a
+wrong key is caught now, not mid-run).
 
 **Check:** inside Max's MAXScript listener run
 `python.ExecuteFile "C:\Users\you\maxdirector\scripts\preflight.py"` — every blocking row ✓.

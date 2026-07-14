@@ -17,6 +17,21 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
+def _add_usersite():
+    """Mirror bootstrap._ensure_usersite_on_path — Max's embedded Python doesn't add user-site,
+    so without this preflight false-negatives on 'requests installed' after a correct install."""
+    for env in ("APPDATA", "LOCALAPPDATA"):
+        base = os.environ.get(env)
+        if base:
+            for p in (os.path.join(base, "Python", "Python311", "site-packages"),):
+                rp = os.path.realpath(p)
+                for cand in (p, rp):
+                    if cand and os.path.isdir(cand) and cand not in sys.path:
+                        sys.path.insert(0, cand)
+
+
+_add_usersite()
 _rows = []
 
 

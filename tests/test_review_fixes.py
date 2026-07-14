@@ -113,7 +113,7 @@ def test_controller_compile_and_check_survives_scout_anchor(living_room, monkeyp
     c = Controller.__new__(Controller)
     c.cfg = type("Cfg", (), {"api_key": "k", "model": "claude-opus-4-8"})()
     c.cv = None
-    out_plan, resolved, findings, errors = c.compile_and_check(d, None)
+    out_plan, resolved, findings, errors, raw = c.compile_and_check(d, None)
     assert out_plan is not None and resolved   # no AttributeError; the primary path works
 
 

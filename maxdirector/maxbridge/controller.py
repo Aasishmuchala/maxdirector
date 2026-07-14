@@ -44,14 +44,19 @@ class Controller:
             try:
                 from .scout import capture_scouts
                 digest = capture_scouts(digest)
+                # BLIND-MODE guard: if not a single thumbnail rendered, the model is placing
+                # cameras from (often meaningless) node names with no visual signal — say so loud.
+                if digest.scouts and not any(sv.thumb_path for sv in digest.scouts):
+                    digest.warnings.append(
+                        "no scout thumbnails rendered — placing cameras BLIND from names; "
+                        "check the active renderer is V-Ray 7 and the scene has geometry")
             except Exception as e:  # scouts are an enhancement; never block the pipeline
                 digest.warnings.append(f"scout capture skipped: {e}")
         return digest
 
-    # ③ DIRECT
-    def direct(self, digest: Digest, brief: Brief) -> Tuple[Optional[Storyboard], List[str]]:
-        sb, notes, _ = director.direct(self.cfg.api_key, digest, brief, model=self.cfg.model)
-        return sb, notes
+    # ③ DIRECT  (returns the raw reply too, so the dock can show WHY on a parse failure)
+    def direct(self, digest: Digest, brief: Brief) -> Tuple[Optional[Storyboard], List[str], str]:
+        return director.direct(self.cfg.api_key, digest, brief, model=self.cfg.model)
 
     # ④ RESOLVE GAPS (detect + research; download is a separate, approved step)
     def resolve_gaps(self, storyboard: Storyboard, digest: Digest) -> List[dict]:
@@ -69,12 +74,12 @@ class Controller:
     # ⑤ COMPILE + ⑤·5 GROUND + CRITIC
     def compile_and_check(
         self, digest: Digest, storyboard: Storyboard, opted_in_nodes: Optional[set] = None
-    ) -> Tuple[Optional[AuthoringPlan], List[ResolvedShot], List[CriticFinding], List[str]]:
-        plan, errors, _ = director.compile_plan(
+    ) -> Tuple[Optional[AuthoringPlan], List[ResolvedShot], List[CriticFinding], List[str], str]:
+        plan, errors, raw = director.compile_plan(
             self.cfg.api_key, digest, storyboard, model=self.cfg.model, opted_in_nodes=opted_in_nodes
         )
         if plan is None:
-            return None, [], [], errors
+            return None, [], [], errors, raw
         resolved = resolve_plan(plan, digest)
         findings: List[CriticFinding] = []
         by_id = {s.id: s for s in plan.shots}
@@ -88,7 +93,7 @@ class Controller:
                 # scout-anchored (the primary path): the resolved look-at IS the framing target
                 center = rs.states[0][1].look_at if rs.states else None
             findings += critique_shot(rs, digest, subject_center=center)
-        return plan, resolved, findings, errors
+        return plan, resolved, findings, errors, raw
 
     def blocked(self, findings: List[CriticFinding]) -> bool:
         return has_blockers(findings)

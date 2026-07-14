@@ -55,12 +55,18 @@ smoke. Run **`python scripts/preflight.py [oc_key]`** anytime to see exactly wha
 
 ## Install (on the Max 2026 box)
 
-1. Clone to e.g. `C:\Users\you\maxdirector`; set env var `MAXDIRECTOR` to that path.
-2. Into Max's Python user-site: `python -m pip install --target "%APPDATA%\Python\Python311\site-packages" requests`
+**Easiest:** clone, then double-click **`scripts\install.bat`** (finds Max's Python, installs
+`requests`, registers the macro, records the clone path). Restart Max → drag the **MaxDirector**
+toolbar action → paste your `oc_` key → **Test & Save**.
+
+Manual, if you prefer:
+1. Clone to e.g. `C:\Users\you\maxdirector`; `setx MAXDIRECTOR C:\Users\you\maxdirector`.
+2. Into Max's Python user-site (use Max's interpreter — an archviz box often has no system Python):
+   `"C:\Program Files\Autodesk\3ds Max 2026\Python\python.exe" -m ensurepip --upgrade` then the same
+   `-m pip install --target "%APPDATA%\Python\Python311\site-packages" requests`.
 3. Copy `maxdirector/startup/maxdirector_startup.py` into
    `%LOCALAPPDATA%/Autodesk/3dsMax/2026 - 64bit/ENU/scripts/startup/`.
-4. Restart Max → Customize → drag the **MaxDirector** action onto a toolbar.
-5. Paste your `oc_` key in the dock (stored at `%LOCALAPPDATA%/MaxDirector/config.json`).
+4. Restart Max → Customize → drag the **MaxDirector** action onto a toolbar → paste key → Test & Save.
 
 ### CV sidecar (optional but recommended — the path to 95%)
 
