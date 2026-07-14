@@ -46,6 +46,38 @@ def _inside_any(p, boxes: List[BBox], pad: float) -> bool:
     return any(b.contains(p, pad=pad) for b in boxes)
 
 
+def _subject_behind(cam: CameraState, center) -> bool:
+    """True if the declared subject is behind the camera — always broken, never intentional."""
+    view = normalize(sub(cam.look_at, cam.pos))
+    to = sub(center, cam.pos)
+    if length(to) < 1e-9:
+        return False
+    return dot(view, normalize(to)) < 0.0
+
+
+def _nearest_node_size(center, digest: Digest) -> float:
+    """Diagonal of the geometry node nearest the framing point — a proxy for subject size so
+    the framing check works on scout shots (whose 'subject' is a look point, not an object)."""
+    best_d, best = 1e30, 0.0
+    for n in digest.nodes:
+        if n.bbox is None:
+            continue
+        c = n.bbox.center
+        d = sum((c[i] - center[i]) ** 2 for i in range(3))
+        if d < best_d:
+            best_d, best = d, n.bbox.diagonal
+    return best
+
+
+def _frame_fraction(cam: CameraState, center, subject_size: float):
+    """Subject angular size as a fraction of the horizontal FOV (None if unknown)."""
+    dist = length(sub(center, cam.pos))
+    if dist < 1e-6 or subject_size <= 0:
+        return None
+    ang = 2.0 * math.atan((subject_size * 0.5) / dist)
+    return ang / _hfov_rad(cam.fov_mm)
+
+
 def _lerp(a, b, t):
     return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 
@@ -74,10 +106,28 @@ def critique_shot(shot: ResolvedShot, digest: Digest, subject_center=None) -> Li
         if _inside_any(cam.pos, boxes, pad=solid_pad):
             findings.append(CriticFinding(shot.id, "camera_inside_solid", Severity.BLOCK,
                                           f"camera at t={t_s:.1f}s is inside an object"))
-        # subject framing
-        if subject_center is not None and not _subject_in_frustum(cam, subject_center):
-            findings.append(CriticFinding(shot.id, "subject_out_of_frame", Severity.WARN,
-                                          f"subject not within the frame at t={t_s:.1f}s"))
+        # subject framing (the identity-defining gate — a good camera still fails here if the
+        # hero subject is behind the lens or not in the frame)
+        if subject_center is not None:
+            if _subject_behind(cam, subject_center):
+                findings.append(CriticFinding(shot.id, "subject_behind_camera", Severity.BLOCK,
+                                              f"the subject is behind the camera at t={t_s:.1f}s"))
+            elif not _subject_in_frustum(cam, subject_center):
+                findings.append(CriticFinding(shot.id, "subject_out_of_frame", Severity.WARN,
+                                              f"subject not within the frame at t={t_s:.1f}s"))
+
+    # subject SIZE on the hero (first) frame — a speck or an overflow reads as a bad shot even
+    # when geometry is legal. Size proxied from the nearest node so scout shots are covered too.
+    if subject_center is not None and shot.states:
+        size = _nearest_node_size(subject_center, digest)
+        frac = _frame_fraction(shot.states[0][1], subject_center, size)
+        if frac is not None:
+            if frac < 0.12:
+                findings.append(CriticFinding(shot.id, "subject_too_small", Severity.WARN,
+                                              "subject reads as a speck — move closer or use a longer lens"))
+            elif frac > 1.35:
+                findings.append(CriticFinding(shot.id, "subject_too_close", Severity.WARN,
+                                              "subject overflows the frame — pull back or widen"))
 
     # path collision: sample between consecutive keyframes
     for (t0, a), (t1, b) in zip(shot.states, shot.states[1:]):
