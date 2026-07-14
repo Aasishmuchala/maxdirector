@@ -115,3 +115,36 @@ def test_controller_compile_and_check_survives_scout_anchor(living_room, monkeyp
     c.cv = None
     out_plan, resolved, findings, errors = c.compile_and_check(d, None)
     assert out_plan is not None and resolved   # no AttributeError; the primary path works
+
+
+# --- grounded bridge fixes (from V-Ray/pymxs docs) — fake-pymxs ---
+
+def _fake_pymxs(monkeypatch):
+    import contextlib
+    fake = types.ModuleType("pymxs")
+    rt = MagicMock()
+    rt.isProperty.return_value = True
+    fake.runtime = rt
+    fake.animate = lambda *a, **k: contextlib.nullcontext()
+    fake.attime = lambda *a, **k: contextlib.nullcontext()
+    monkeypatch.setitem(sys.modules, "pymxs", fake)
+    return fake, rt
+
+
+def test_create_camera_is_free_camera_and_sets_focal_length(monkeypatch):
+    _, rt = _fake_pymxs(monkeypatch)
+    from maxdirector.maxbridge.authoring import create_camera
+    cam, ok = create_camera("hero", 28.0)
+    assert ok
+    assert cam.targeted is False            # free camera → cam.transform controls orientation
+    assert cam.focal_length == 28.0
+
+
+def test_vantage_export_includes_frame_range(monkeypatch, tmp_path):
+    _, rt = _fake_pymxs(monkeypatch)
+    rt.vrayExportVRScene.side_effect = lambda path, **kw: open(path, "w").close()
+    from maxdirector.maxbridge.vantage import export_shot_scene
+    out = export_shot_scene("MD_Cam_01", 0, 48, str(tmp_path))
+    assert out is not None
+    _, kwargs = rt.vrayExportVRScene.call_args
+    assert kwargs.get("startFrame") == 0 and kwargs.get("endFrame") == 48  # else NO animation

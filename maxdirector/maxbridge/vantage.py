@@ -42,10 +42,12 @@ def export_shot_scene(camera_name: str, frame_start: int, frame_end: int, out_di
             rt.viewport.setCamera(cam)
         rt.rendStart = frame_start
         rt.rendEnd = frame_end
-        # V-Ray exporter: write the current scene/anim range to a .vrscene
-        rt.vrayExportVRScene(path) if hasattr(rt, "vrayExportVRScene") else rt.execute(
-            f'callbacks.broadcast #vrayExport "{path}"'
-        )
+        # startFrame/endFrame are MANDATORY — without them vrayExportVRScene writes NO
+        # animation (Chaos docs). That omission would have exported frozen single-frame scenes.
+        if hasattr(rt, "vrayExportVRScene"):
+            rt.vrayExportVRScene(path, startFrame=frame_start, endFrame=frame_end)
+        else:
+            return None   # no exporter available on this build — caller halts the queue
         return path if os.path.exists(path) else None
     except Exception:
         return None

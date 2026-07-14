@@ -47,6 +47,12 @@ tests/                  pytest — runs on any OS, no Max
 
 `core` is enforced pymxs-free by a test, so the whole Director runs and is tested on macOS.
 
+## Launch
+
+Follow **[docs/RUNBOOK.md](docs/RUNBOOK.md)** — prove the bet → install → spikes → first live
+smoke. Run **`python scripts/preflight.py [oc_key]`** anytime to see exactly what's not ready
+(deps, key, live gateway ping, CV sidecar; inside Max it also checks pymxs + V-Ray).
+
 ## Install (on the Max 2026 box)
 
 1. Clone to e.g. `C:\Users\you\maxdirector`; set env var `MAXDIRECTOR` to that path.

@@ -44,16 +44,28 @@ def create_camera(name: str, fov_mm: float = 35.0):
     for ctor in ("VRayPhysicalCamera", "Physical", "FreeCamera"):
         maker = getattr(rt, ctor, None)
         if maker is not None:
-            cam = maker()
-            break
+            try:
+                cam = maker()
+                break
+            except Exception:
+                cam = None
     if cam is None:
         return None, False
     cam.name = name
+    # FREE camera: with .targeted=False the camera's own transform controls orientation, so
+    # cam.transform = look-at matrix actually aims it (a targeted cam is driven by its target
+    # node and would ignore our transform — confirmed against the V-Ray/Physical camera docs).
+    if rt.isProperty(cam, rt.Name("targeted")):
+        try:
+            cam.targeted = False
+        except Exception:
+            pass
     _set_fov(rt, cam, fov_mm)
     return cam, True
 
 
 def _set_fov(rt, cam, fov_mm: float) -> bool:
+    # focal_length (mm) is the physical, unambiguous control — preferred.
     for attr in ("focal_length", "focal_length_mm"):
         if rt.isProperty(cam, rt.Name(attr)):
             try:
@@ -61,8 +73,10 @@ def _set_fov(rt, cam, fov_mm: float) -> bool:
                 return abs(float(getattr(cam, attr)) - fov_mm) < 1e-2
             except Exception:
                 pass
-    # fall back to angular FOV (deg) from a 36mm sensor
+    # fall back to angular FOV — but it's IGNORED unless specify_fov is enabled first.
     try:
+        if rt.isProperty(cam, rt.Name("specify_fov")):
+            cam.specify_fov = True
         cam.fov = math.degrees(2.0 * math.atan(36.0 / (2.0 * max(fov_mm, 1.0))))
         return True
     except Exception:
@@ -95,7 +109,7 @@ def apply_camera_states(cam, states: List, fps: float) -> ApplyResult:
         return res
     with pymxs.animate(True):
         for t_s, st in states:
-            f = t_s * fps
+            f = round(t_s * fps)   # pymxs.attime rounds fractional frames anyway → be explicit
             with pymxs.attime(f):
                 try:
                     cam.transform = _look_at_tm(rt, st.pos, st.look_at, st.up)
@@ -222,7 +236,7 @@ def animate_object(node_name: str, track: str, keys: List[dict], fps: float) -> 
         return res
     with pymxs.animate(True):
         for k in keys:
-            f = float(k.get("t_s", 0.0)) * fps
+            f = round(float(k.get("t_s", 0.0)) * fps)   # integer frames (attime rounds anyway)
             val = k.get("value", [0, 0, 0])
             with pymxs.attime(f):
                 try:
